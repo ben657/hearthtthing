@@ -1,0 +1,209 @@
+<!DOCTPYE html>
+<html style="height: 100%; margin: 0">
+<head>
+    <title>Foraging Companion: W11</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="stylesheet" href="scripts/leaflet/leaflet.css">
+    <script src="scripts/leaflet/leaflet.js"></script>
+    <link rel="stylesheet" href="scripts/leaflet/Control.FullScreen.css"/>
+	<script src="scripts/leaflet/Control.FullScreen.js"></script>
+	<link rel="stylesheet" href="scripts/leaflet/leaflet-categorized-layers.src.css"/>
+    <script src="scripts/leaflet/leaflet-categorized-layers.src.js"></script>
+</head>
+
+<body>
+    <style>	
+    html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+    }
+    #map {
+        height: 100%;
+    }
+                  
+    #location {
+        position: absolute;
+        left: 0px;
+        top: 0px;
+        z-index: 110;
+        font-size:10;
+        color: black;
+        font-family: Verdana, Helvetica;
+        }
+                
+    .gridTile {
+        color: white;
+        text-shadow:
+        -1px -1px 0 #000,  
+        1px -1px 0 #000,
+        -1px 1px 0 #000,
+        1px 1px 0 #000;
+        font-weight: bold;
+        }
+    </style>
+            
+
+    <div id="map" style="width: 100%; height: 100%; background: #888888;"></div>
+
+    <script type = "text/javascript">
+
+    function init() {
+      var origin = convertPointToLatLng(L.point(gup("x","0"), gup("y","0")));
+
+      // declare map object
+      var map = L.map('map', {
+          crs: L.CRS.Simple,
+      minZoom: 3,
+      maxZoom: 11,
+          fullscreenControl: true,
+        fullscreenControlOptions: {
+          position: 'topleft'
+        }
+
+      }).setView([origin.lat, origin.lng], gup("zoom", "9"));
+
+      // reference tiles
+      L.tileLayer('maps/{z}/{x}/{y}.png', {
+          tileSize: 100
+      }).addTo(map);
+
+      L.GridLayer.DebugCoords = L.GridLayer.extend({
+      createTile: function (coords) {
+        var factor = Math.pow(2,9 - coords.z);
+        var x = ((coords.x) * factor);
+        var y = ((coords.y) * factor);
+        var div = document.createElement('div');
+        div.innerHTML = "(" + x + "," + y + ")";
+        div.style.width = 100 + 'px';
+        div.style.height = 100 + 'px';
+        div.style.fontSize = '10';
+        div.style.borderStyle = 'solid';
+        div.style.borderWidth = '1px';
+        div.style.borderColor = '#000000';
+        div.className = "gridTile";
+        return div;
+      }
+      });
+
+      L.gridLayer.debugCoords = function(opts) {
+      return new L.GridLayer.DebugCoords(opts);
+      };
+
+      map.addLayer( L.gridLayer.debugCoords(
+      {
+      tileSize: 100
+      }));
+
+      //Events
+      map.on('moveend', onMoveEnd);
+
+      function onMoveEnd(e) {
+      var coords = convertLatLngToPoint(map.getCenter());
+      location.hash = "#x=" + Math.round(coords.x * 100) / 100 + "&y=" + Math.round(coords.y * 100) / 100 + "&zoom=" + map.getZoom();
+      }
+
+      function convertLatLngToPoint(latlng) {
+      var coords = L.CRS.Simple.latLngToPoint(latlng, 9);
+      var x = coords.x / 100.0;
+      var y = coords.y / 100.0;
+      return L.point(x, y);
+      }
+
+      function convertPointToLatLng(coords) {
+      var lat = coords.x * 100;
+      var lng = coords.y * 100;
+      var latlng = L.CRS.Simple.pointToLatLng(L.point(lat, lng), 9);
+      return latlng;
+      }
+
+      //Get URL Parameter
+      function gup(name,dflt) {
+      name = name.replace(/[[]/,"\\\[").replace(/[]]/,"\\\]");
+      var regexS = "[?#&]"+name+"=([^&#]*)";
+      var regex = new RegExp( regexS );
+      var results = regex.exec( window.location.href );
+      if( results == null )
+        return dflt;
+      else
+        return results[1];
+      }
+
+      var MapIcon = L.Icon.extend({
+      options: {
+        iconSize:     [25, 25]
+      }
+      });
+
+      // markers and popups
+      var soilIcon = new MapIcon({iconUrl: 'Icons/soil.png'});
+      var clayIcon = new MapIcon({iconUrl: 'Icons/clay.png'});
+      var waterIcon = new MapIcon({iconUrl: 'Icons/water.png'});
+
+      //soil
+      var soil1 = L.marker(convertPointToLatLng(L.point(-0.8,  -1.9)), {icon: soilIcon}).bindTooltip("Soil Q26");
+
+      //clay
+      var clay1 = L.marker(convertPointToLatLng(L.point(3.85,  -3.2)), {icon: clayIcon}).bindTooltip("Clay Q64");
+
+      //water
+      var water1 = L.marker(convertPointToLatLng(L.point(2.7,  -4.7)), {icon: waterIcon}).bindTooltip("Water Q45");
+
+
+
+      var soils = L.layerGroup([soil1]).addTo(map);
+      var clays = L.layerGroup([clay1]).addTo(map);
+      var waters = L.layerGroup([water1]).addTo(map);
+
+      var baseLayers = {
+
+      };
+
+      var overlayMaps = {
+      "Soil": soils,
+      "Clay": clays,
+      "Water": waters
+      };
+
+      var overlayLayers= {
+      "Structures": {
+
+      },
+      "Localized Resource": {
+
+      },
+      "Resources": {
+        "Soil": soils,
+        "Clay": clays,
+        "Water": waters
+      },
+      "Animals": {
+
+      },
+      "Fish": {
+
+      }
+      };
+
+      map.addControl( new L.Control.CategorizedLayers(baseLayers, overlayLayers, {collapsed : false}) );
+    }
+
+    let key = window.prompt('Enter login key');
+    let req = new XMLHttpRequest();
+    req.open('GET', 'https://us-central1-hearth-42ec4.cloudfunctions.net/verify?key=' + key,);
+    req.onload = function(e) {
+      let result = JSON.parse(e.target.responseText).result;
+      if(result) init();
+    }
+    req.send();
+	//L.control.layers(baseLayers, overlayMaps).addTo(map);
+
+
+
+
+    </script>
+</body>
+
+</html>
